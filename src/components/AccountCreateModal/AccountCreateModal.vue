@@ -1,92 +1,87 @@
 <script setup lang="ts">
-import { reactive, ref, computed } from "vue";
+import { EyeOffOutline, EyeOutline } from "@vicons/ionicons5";
 import {
-   NModal,
-   NCard,
-   NFormItem,
-   NInput,
-   NSelect,
    NButton,
+   NCard,
+   NForm,
+   NFormItem,
    NIcon,
+   NInput,
+   NModal,
 } from "naive-ui";
-import type { Account, AccountType, LabelItem } from "../../types";
-import { useAccountsStore } from "../../stores/accounts";
-import { EyeOutline, EyeOffOutline } from "@vicons/ionicons5";
+import { computed, reactive, ref } from "vue";
 
-const props = defineProps<{
-   show: boolean;
-}>();
+import { useAccountsStore } from "../../stores/accounts";
+import type { Account, LabelItem } from "../../types";
+
+const props = defineProps<{ show: boolean }>();
 const emit = defineEmits<{
    (e: "update:show", v: boolean): void;
    (e: "created", acc: Account): void;
 }>();
 
 const store = useAccountsStore();
-const pwdHidden = ref(true);
 
-const typeOptions = [
-   { label: "Локальная", value: "Локальная" as AccountType },
-   { label: "LDAP", value: "LDAP" as AccountType },
-];
-
-// --- helpers
-function parseLabels(input: string): LabelItem[] {
-   const trimmed = input.trim();
-   if (!trimmed) return [];
-   const sliced = trimmed.slice(0, 50);
-   return sliced
-      .split(";")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((text) => ({ text }));
-}
-
-// --- локальная модель формы
 const form = reactive({
-   labelsInput: "",
-   type: "Локальная" as AccountType,
-   login: "",
-   password: "",
-   errors: {} as Partial<Record<"labelsInput" | "login" | "password", string>>,
+   labelsInput: "" as string, // "AAA; BBB; CCC" — необязательно
+   login: "" as string, // обязательно
+   password: "" as string, // обязательно
 });
 
-const showPassword = computed(() => form.type === "Локальная");
+const touched = reactive({ login: false, password: false });
+const errors = reactive<{ login?: string; password?: string }>({});
+const showPassword = ref(false);
 
-function validate() {
-   form.errors = {};
-   if (form.labelsInput.length > 50)
-      form.errors.labelsInput = "Максимум 50 символов";
-   if (!form.login.trim()) form.errors.login = "Обязательное поле";
-   else if (form.login.length > 100)
-      form.errors.login = "Максимум 100 символов";
-   if (form.type === "Локальная") {
-      if (!form.password.trim()) form.errors.password = "Обязательное поле";
-      else if (form.password.length > 100)
-         form.errors.password = "Максимум 100 символов";
+function touch(field: "login" | "password") {
+   touched[field] = true;
+   validateField(field);
+}
+function validateField(field: "login" | "password") {
+   if (field === "login") {
+      errors.login = form.login.trim() ? undefined : "Обязательное поле";
+   } else {
+      errors.password = form.password.trim() ? undefined : "Обязательное поле";
    }
-   return Object.keys(form.errors).length === 0;
+}
+const isValid = computed(() => !!form.login.trim() && !!form.password.trim());
+
+/** ВСЕГДА возвращаем LabelItem[], даже если пусто — тогда [] */
+function parseLabelsToItems(input: string): LabelItem[] {
+   const parts = input
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+   return parts.map((text) => ({ text }));
 }
 
-function onTypeChange(v: AccountType) {
-   form.type = v;
-   if (v === "LDAP") form.password = "";
+function reset() {
+   form.labelsInput = "";
+   form.login = "";
+   form.password = "";
+   touched.login = false;
+   touched.password = false;
+   errors.login = undefined;
+   errors.password = undefined;
 }
-
 function close() {
    emit("update:show", false);
+   reset();
 }
 
 function submit() {
-   if (!validate()) return;
+   touch("login");
+   touch("password");
+   if (!isValid.value) return;
+
    const acc: Account = {
-      id: crypto.randomUUID
-         ? crypto.randomUUID()
-         : String(Date.now() + Math.random()),
-      labels: parseLabels(form.labelsInput),
-      type: form.type,
+      id: crypto.randomUUID?.() ?? String(Date.now()),
+      type: "Локальная", // твой AccountType: "LDAP" | "Локальная"
       login: form.login.trim(),
-      password: form.type === "LDAP" ? null : form.password,
+      password: form.password,
+      labels: parseLabelsToItems(form.labelsInput), // <-- всегда массив (в т.ч. [])
    };
+
    store.upsert(acc);
    emit("created", acc);
    close();
@@ -94,72 +89,73 @@ function submit() {
 </script>
 
 <template>
-   <NModal
-      :show="props.show"
-      preset="card"
-      :mask-closable="false"
-      @update:show="(v) => emit('update:show', v)"
-   >
-      <NCard title="Новая учётная запись" size="small" class="create-card">
-         <div class="grid">
-            <NFormItem
-               label="Метки"
-               :feedback="form.errors.labelsInput"
-               :validation-status="
-                  form.errors.labelsInput ? 'error' : undefined
-               "
-            >
+   <NModal :show="props.show" @update:show="emit('update:show', $event)">
+      <NCard
+         title="Новая учётная запись"
+         size="large"
+         :segmented="{ content: true, footer: true }"
+      >
+         <NForm label-placement="top" :show-require-mark="false">
+            <!-- Метки (необязательные) -->
+            <NFormItem label="Метки">
                <NInput
                   v-model:value="form.labelsInput"
                   placeholder="XXX; YYY; ZZZ"
                />
             </NFormItem>
 
-            <NFormItem label="Тип записи">
-               <NSelect
-                  :options="typeOptions"
-                  v-model:value="form.type"
-                  @update:value="onTypeChange"
+            <!-- Логин (обязательное) -->
+            <NFormItem
+               label="Логин"
+               :validation-status="
+                  touched.login && errors.login ? 'error' : undefined
+               "
+               :feedback="touched.login ? errors.login : undefined"
+            >
+               <NInput
+                  v-model:value="form.login"
+                  placeholder="Значение"
+                  @blur="touch('login')"
                />
             </NFormItem>
 
+            <!-- Пароль (обязательное) -->
             <NFormItem
-               label="Логин"
-               :feedback="form.errors.login"
-               :validation-status="form.errors.login ? 'error' : undefined"
-            >
-               <NInput v-model:value="form.login" placeholder="Значение" />
-            </NFormItem>
-
-            <NFormItem
-               v-if="showPassword"
                label="Пароль"
-               :feedback="form.errors.password"
-               :validation-status="form.errors.password ? 'error' : undefined"
+               :validation-status="
+                  touched.password && errors.password ? 'error' : undefined
+               "
+               :feedback="touched.password ? errors.password : undefined"
             >
                <NInput
                   v-model:value="form.password"
-                  :type="pwdHidden ? 'password' : 'text'"
+                  :type="showPassword ? 'text' : 'password'"
                   placeholder="Введите пароль"
+                  @blur="touch('password')"
                >
                   <template #suffix>
-                     <NIcon
-                        style="cursor: pointer"
-                        @click="pwdHidden = !pwdHidden"
+                     <NButton
+                        text
+                        @click="showPassword = !showPassword"
+                        style="padding: 0 6px"
                      >
-                        <component
-                           :is="pwdHidden ? EyeOutline : EyeOffOutline"
-                        />
-                     </NIcon>
+                        <NIcon size="18">
+                           <component
+                              :is="showPassword ? EyeOffOutline : EyeOutline"
+                           />
+                        </NIcon>
+                     </NButton>
                   </template>
                </NInput>
             </NFormItem>
-         </div>
+         </NForm>
 
          <template #action>
             <div class="actions">
                <NButton quaternary @click="close">Отмена</NButton>
-               <NButton type="primary" @click="submit">Добавить</NButton>
+               <NButton type="primary" :disabled="!isValid" @click="submit"
+                  >Добавить</NButton
+               >
             </div>
          </template>
       </NCard>

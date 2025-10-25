@@ -21,3 +21,10 @@
       grid-template-columns: 1fr;
    }
 }
+
+.password-masked {
+   -webkit-text-security: disc;
+}
+.password-masked::placeholder {
+   -webkit-text-security: none; /* чтобы placeholder был виден */
+}

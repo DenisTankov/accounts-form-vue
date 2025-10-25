@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useAccountsStore } from "../../stores/accounts";
 import type { Account } from "../../types";
-import AccountRow from "../AccountRow/AccountRow.vue";
+import AccountCard from "../AccountCard/AccountCard.vue";
 import { ref } from "vue";
 import AccountCreateModal from "../AccountCreateModal/AccountCreateModal.vue";
 
@@ -39,7 +39,7 @@ function onCreated(_acc: Account) {
       </div>
 
       <div class="list">
-         <AccountRow
+         <AccountCard
             v-for="acc in store.items"
             :key="acc.id"
             :model-value="acc"

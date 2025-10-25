@@ -9,8 +9,7 @@ import {
    NInput,
    NModal,
 } from "naive-ui";
-import { computed, reactive, ref } from "vue";
-
+import { computed, reactive, ref, watch } from "vue";
 import { useAccountsStore } from "../../stores/accounts";
 import type { Account, LabelItem } from "../../types";
 
@@ -23,35 +22,60 @@ const emit = defineEmits<{
 const store = useAccountsStore();
 
 const form = reactive({
-   labelsInput: "" as string, // "AAA; BBB; CCC" — необязательно
+   labelsInput: "" as string, // необязательно
    login: "" as string, // обязательно
-   password: "" as string, // обязательно
+   password: "" as string, // обязательно (ASCII)
 });
 
 const touched = reactive({ login: false, password: false });
 const errors = reactive<{ login?: string; password?: string }>({});
 const showPassword = ref(false);
 
-function touch(field: "login" | "password") {
-   touched[field] = true;
-   validateField(field);
+// ASCII helper
+const isAscii = (s: string) => /^[\x20-\x7E]+$/.test(s || "");
+
+// мгновенная ошибка на не-ASCII
+const passwordAsciiError = ref(false);
+
+/* -------------------- Валидация -------------------- */
+function validateLogin() {
+   errors.login = form.login.trim() ? undefined : "Обязательное поле";
 }
-function validateField(field: "login" | "password") {
-   if (field === "login") {
-      errors.login = form.login.trim() ? undefined : "Обязательное поле";
+
+// «обязательное поле» для пароля — только на blur
+function validatePasswordRequiredOnBlur() {
+   touched.password = true;
+   if (!form.password.trim()) {
+      errors.password = "Обязательное поле";
    } else {
-      errors.password = form.password.trim() ? undefined : "Обязательное поле";
+      errors.password = undefined;
    }
 }
-const isValid = computed(() => !!form.login.trim() && !!form.password.trim());
 
-/** ВСЕГДА возвращаем LabelItem[], даже если пусто — тогда [] */
+// следим за паролем: мгновенно сигналим при не-ASCII
+watch(
+   () => form.password,
+   (val) => {
+      if (val && !isAscii(val)) {
+         passwordAsciiError.value = true;
+      } else {
+         passwordAsciiError.value = false;
+         if (!touched.password) errors.password = undefined;
+      }
+   }
+);
+
+// кнопка активна, когда оба поля ок и пароль ASCII
+const isValid = computed(
+   () => !!form.login.trim() && !!form.password.trim() && isAscii(form.password)
+);
+
+/** Преобразование меток в LabelItem[] */
 function parseLabelsToItems(input: string): LabelItem[] {
    const parts = input
       .split(";")
       .map((s) => s.trim())
       .filter(Boolean);
-
    return parts.map((text) => ({ text }));
 }
 
@@ -63,23 +87,27 @@ function reset() {
    touched.password = false;
    errors.login = undefined;
    errors.password = undefined;
+   passwordAsciiError.value = false;
 }
+
 function close() {
    emit("update:show", false);
    reset();
 }
 
 function submit() {
-   touch("login");
-   touch("password");
+   // финальная проверка
+   touched.login = true;
+   validateLogin();
+   validatePasswordRequiredOnBlur();
    if (!isValid.value) return;
 
    const acc: Account = {
       id: crypto.randomUUID?.() ?? String(Date.now()),
-      type: "Локальная", // твой AccountType: "LDAP" | "Локальная"
+      type: "Локальная",
       login: form.login.trim(),
       password: form.password,
-      labels: parseLabelsToItems(form.labelsInput), // <-- всегда массив (в т.ч. [])
+      labels: parseLabelsToItems(form.labelsInput),
    };
 
    store.upsert(acc);
@@ -104,7 +132,7 @@ function submit() {
                />
             </NFormItem>
 
-            <!-- Логин (обязательное) -->
+            <!-- Логин (обязательное, ошибка на blur) -->
             <NFormItem
                label="Логин"
                :validation-status="
@@ -115,23 +143,39 @@ function submit() {
                <NInput
                   v-model:value="form.login"
                   placeholder="Значение"
-                  @blur="touch('login')"
+                  @blur="
+                     touched.login = true;
+                     validateLogin();
+                  "
                />
             </NFormItem>
 
-            <!-- Пароль (обязательное) -->
+            <!-- Пароль (ASCII). 
+             Обязательное поле — ошибка только после blur,
+             не-ASCII — мгновенная ошибка. Маска через CSS-класс. -->
             <NFormItem
                label="Пароль"
                :validation-status="
-                  touched.password && errors.password ? 'error' : undefined
+                  passwordAsciiError || (touched.password && errors.password)
+                     ? 'error'
+                     : undefined
                "
-               :feedback="touched.password ? errors.password : undefined"
+               :feedback="
+                  passwordAsciiError
+                     ? 'Пароль должен быть латиницей (A–Z, a–z, цифры, символы)'
+                     : touched.password
+                     ? errors.password
+                     : undefined
+               "
             >
                <NInput
                   v-model:value="form.password"
                   :type="showPassword ? 'text' : 'password'"
                   placeholder="Введите пароль"
-                  @blur="touch('password')"
+                  autocomplete="new-password"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  @blur="validatePasswordRequiredOnBlur"
                >
                   <template #suffix>
                      <NButton

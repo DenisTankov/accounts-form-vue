@@ -1,0 +1,39 @@
+.row {
+   display: grid;
+   grid-template-columns: 1fr 180px 1fr 1fr 120px;
+   gap: 14px;
+   align-items: center;
+   background: var(--n-color, #fff);
+   border: 1px solid #e5e7eb;
+   border-radius: 12px;
+   padding: 14px;
+}
+
+.actions {
+   display: flex;
+   align-items: flex-end;
+}
+@media (max-width: 900px) {
+   .row {
+      grid-template-columns: 1fr;
+   }
+}
+
+.eye-icon {
+   cursor: pointer;
+   /* display: inline-flex;
+   align-items: center; */
+}
+
+.delete-btn {
+   color: #666; /* базовый цвет иконки */
+   transition: color 0.2s ease; /* плавное изменение */
+   cursor: pointer;
+   display: inline-flex; /* иконка выравнена */
+   align-items: center;
+   justify-content: center;
+}
+
+.delete-btn:hover {
+   color: #e03131 !important; /* красный при наведении */
+}

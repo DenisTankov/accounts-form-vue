@@ -19,11 +19,12 @@ const emit = defineEmits<{
 
 const store = useAccountsStore();
 
-/* -------- helpers -------- */
 function labelsToInput(labels: LabelItem[]): string {
    return labels.map((l) => l.text).join("; ");
 }
+
 const cacheKey = (id: string) => `acc_pwd_cache:${id}`;
+
 function readPwdCache(id: string): string | null {
    try {
       return sessionStorage.getItem(cacheKey(id));
@@ -37,6 +38,7 @@ function writePwdCache(id: string, pwd: string) {
       else sessionStorage.removeItem(cacheKey(id));
    } catch {}
 }
+
 function clearPwdCache(id: string) {
    try {
       sessionStorage.removeItem(cacheKey(id));
@@ -75,7 +77,7 @@ onMounted(() => {
    }
 });
 
-/* ВАЖНО: при обновлении modelValue не затираем пароль пустым */
+/* при обновлении modelValue не затираем пароль пустым */
 watch(
    () => props.modelValue,
    (v) => {
@@ -159,7 +161,6 @@ function removeRow() {
    emit("remove", draft.id);
 }
 
-/* -------- ui -------- */
 const showPassword = computed(() => draft.type === "Локальная");
 const pwdHidden = ref(true);
 
@@ -171,16 +172,10 @@ const typeOptions = [
 
 <template>
    <div class="row">
-      <!-- Метки (read-only) -->
       <NFormItem label="Метки">
-         <NInput
-            v-model:value="draft.labelsInput"
-            placeholder="XXX; YYY; ZZZ"
-            readonly
-         />
+         <NInput v-model:value="draft.labelsInput" readonly />
       </NFormItem>
 
-      <!-- Тип записи (единственное редактируемое поле) -->
       <NFormItem label="Тип записи">
          <NSelect
             v-model:value="draft.type"
@@ -189,17 +184,14 @@ const typeOptions = [
          />
       </NFormItem>
 
-      <!-- Логин (read-only) -->
       <NFormItem label="Логин">
-         <NInput v-model:value="draft.login" placeholder="Значение" readonly />
+         <NInput v-model:value="draft.login" readonly />
       </NFormItem>
 
-      <!-- Пароль (read-only, только для Локальная) -->
       <NFormItem v-if="showPassword" label="Пароль">
          <NInput
             :type="pwdHidden ? 'password' : 'text'"
             v-model:value="draft.password"
-            placeholder="Введите пароль"
             readonly
          >
             <template #suffix>
@@ -214,7 +206,6 @@ const typeOptions = [
          </NInput>
       </NFormItem>
 
-      <!-- Удаление -->
       <div class="actions">
          <NButton quaternary class="delete-btn" @click="removeRow">
             <template #icon>

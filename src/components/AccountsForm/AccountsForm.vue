@@ -1,8 +1,8 @@
 <script lang="ts" setup>
+import { ref } from "vue";
 import { useAccountsStore } from "../../stores/accounts";
 import type { Account } from "../../types";
 import AccountCard from "../AccountCard/AccountCard.vue";
-import { ref } from "vue";
 import AccountCreateModal from "../AccountCreateModal/AccountCreateModal.vue";
 
 const store = useAccountsStore();
@@ -48,7 +48,6 @@ function onCreated(_acc: Account) {
          />
       </div>
 
-      <!-- ⬅️ модалка создания -->
       <AccountCreateModal v-model:show="showCreate" @created="onCreated" />
    </div>
 </template>

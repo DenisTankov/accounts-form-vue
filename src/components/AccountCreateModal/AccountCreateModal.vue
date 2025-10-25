@@ -22,22 +22,19 @@ const emit = defineEmits<{
 const store = useAccountsStore();
 
 const form = reactive({
-   labelsInput: "" as string, // необязательно
-   login: "" as string, // обязательно
-   password: "" as string, // обязательно (ASCII)
+   labelsInput: "" as string,
+   login: "" as string,
+   password: "" as string,
 });
 
 const touched = reactive({ login: false, password: false });
 const errors = reactive<{ login?: string; password?: string }>({});
 const showPassword = ref(false);
 
-// ASCII helper
 const isAscii = (s: string) => /^[\x20-\x7E]+$/.test(s || "");
 
-// мгновенная ошибка на не-ASCII
 const passwordAsciiError = ref(false);
 
-/* -------------------- Валидация -------------------- */
 function validateLogin() {
    errors.login = form.login.trim() ? undefined : "Обязательное поле";
 }
@@ -52,7 +49,6 @@ function validatePasswordRequiredOnBlur() {
    }
 }
 
-// следим за паролем: мгновенно сигналим при не-ASCII
 watch(
    () => form.password,
    (val) => {
@@ -132,7 +128,6 @@ function submit() {
                />
             </NFormItem>
 
-            <!-- Логин (обязательное, ошибка на blur) -->
             <NFormItem
                label="Логин"
                :validation-status="
@@ -150,9 +145,6 @@ function submit() {
                />
             </NFormItem>
 
-            <!-- Пароль (ASCII). 
-             Обязательное поле — ошибка только после blur,
-             не-ASCII — мгновенная ошибка. Маска через CSS-класс. -->
             <NFormItem
                label="Пароль"
                :validation-status="
